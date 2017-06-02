@@ -1,0 +1,105 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tm)
+```
+```{r}
+files <- list.files(pattern = "pdf$")
+Rpdf <- readPDF(control = list(text = "-layout"))
+opinions1 <- Corpus(URISource(files), 
+                   readerControl = list(reader = Rpdf))
+
+```
+
+```{r}
+#str(opinions1)
+v1 <- opinions1[0]
+dataframe<-data.frame(text=unlist(sapply(opinions1, `[`, "content")), stringsAsFactors=F)
+```
+
+
+
+
+```{r}
+dailyCallData <- function(dataframe,i)
+{
+  date_str<-gsub("Data for  ", "" , dataframe[i+2,1])
+  data_for <- as.Date(date_str,format = "%d-%B-%y")
+  strsplit(strsplit(dataframe[i+11,1], "          ")[[1]][2]," ")
+  strsplit(strsplit(dataframe[i+11,1], "          ")[[1]][3]," ")
+  call_attempts_24_air <- strsplit(strsplit(dataframe[i+11,1], "          ")[[1]][2]," ")[[1]][1]
+  call_failures_24_air <- strsplit(strsplit(dataframe[i+11,1], "          ")[[1]][2]," ")[[1]][3]
+  
+  call_attempts_24_voda <- strsplit(strsplit(dataframe[i+13,1], "          ")[[1]][2]," ")[[1]][1]
+  call_failures_24_voda <- strsplit(strsplit(dataframe[i+13,1], "          ")[[1]][2]," ")[[1]][3]
+  
+  call_attempts_24_idea <- strsplit(strsplit(dataframe[i+15,1], "          ")[[1]][2]," ")[[1]][1]
+  call_failures_24_idea <- strsplit(strsplit(dataframe[i+15,1], "          ")[[1]][2]," ")[[1]][3]
+ 
+  dataframe_air <- data.frame(data_for,call_attempts_24_air,call_failures_24_air,c('Airtel'))
+  dataframe_voda <- data.frame(data_for,call_attempts_24_voda,call_failures_24_voda,c('Vodaphone'))
+  dataframe_idea <- data.frame(data_for,call_attempts_24_idea,call_failures_24_idea,c('Idea'))
+  
+  colnames(dataframe_air) <- c('Date','Attempts','Failures','Company')
+  colnames(dataframe_voda) <- c('Date','Attempts','Failures','Company')
+  colnames(dataframe_idea) <- c('Date','Attempts','Failures','Company')
+  
+  dataframe <- rbind(dataframe_air,dataframe_voda,dataframe_idea)
+  
+  return(dataframe)
+}
+```
+
+```{r}
+daily_Stats <- NULL
+for(i in seq(from=1, to=3740, by=17)){
+  df <- dailyCallData(dataframe,i)
+  daily_Stats <- rbind(daily_Stats,df)
+}
+```
+
+```{r}
+daily_Stats_extract <- daily_Stats[daily_Stats$Failures!="",]
+#write.csv(daily_Stats_extract, file="daily_Stats_extract.csv", row.name=FALSE)
+write.csv(daily_Stats_extract, file = "daily_Stats_extract.csv")
+```
+
+```{r}
+require("rvest")||install.packages("rvest")
+library(rvest)
+library(stringr)
+
+page <- read_html("https://www.jio.com/en-in/regulatory/calldata")
+jio.nodes <- html_nodes(page, ".col-md-12") %>% html_attrs()
+
+pat <- "https?:\\/\\/\\S*"
+i=0
+
+jio.nodes <- jio.nodes[2:223]
+for ( j in jio.nodes)
+{
+  str_winOpen <- j[2]
+  i
+  str_html <- str_extract(str_winOpen, pat)
+  str_url <- str_replace(str_html,"'\\)","")
+  str_file_name <- str_extract(str_url, "media.com\\S*")
+  str_file_name <- str_replace(str_file_name,"media.com/","")
+  str_file_name <- str_replace(str_file_name,"file/","")
+  if (str_file_name != '636293917769278337HR.pdf')
+  {
+    
+    download.file(str_url, str_file_name, mode="wb")
+  }
+  
+}
+
+```
+
+
